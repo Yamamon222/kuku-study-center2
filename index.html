@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="しょうがくせい向けの九九のお勉強用アプリです。">
+    <title>九九がんばりドリル</title>
+    <style>
+        :root { --primary: #03a9f4; --secondary: #ff9800; --bg: #fffde7; --white: #ffffff; }
+        body { font-family: 'Hiragino Kaku Gothic ProN', sans-serif; text-align: center; background-color: var(--bg); color: #333; margin: 0; padding: 10px; touch-action: manipulation; }
+        
+        .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: var(--white); 
+            padding: 15px 20px; 
+            border-radius: 30px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+            border: 4px solid #ffd54f; 
+        }
+        
+        .timer-box { font-size: 1.5rem; font-family: monospace; background: #444; color: #0f0; padding: 5px 20px; border-radius: 10px; display: inline-block; margin-bottom: 5px; }
+        
+        .question { font-size: 4.5rem; margin: 5px 0; font-weight: bold; color: #2e7d32; position: relative; min-height: 5.5rem; line-height: 1.2; }
+        #circle-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 15rem; color: rgba(255, 0, 0, 0.7); display: none; pointer-events: none; z-index: 20; }
+        #hanamaru-overlay { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 20rem; color: rgba(255, 0, 0, 0.8); display: none; pointer-events: none; z-index: 100; white-space: nowrap; }
+
+        .answer-display { font-size: 4.5rem; color: #e91e63; background: #fce4ec; border-radius: 20px; min-height: 5.5rem; line-height: 5.5rem; margin-bottom: 10px; border: 5px solid #f06292; }
+
+        .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 0 10px; }
+        .num-btn { 
+            padding: 22px 0; 
+            font-size: 2.3rem; 
+            border: none; 
+            border-radius: 15px; 
+            background: #f5f5f5; 
+            cursor: pointer; 
+            box-shadow: 0 5px #ccc; 
+            border: 1px solid #ddd; 
+        }
+        .num-btn:active { transform: translateY(4px); box-shadow: none; }
+        
+        .menu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+        .menu-btn { padding: 10px 5px; background: var(--primary); color: white; border: none; border-radius: 15px; cursor: pointer; font-weight: bold; box-shadow: 0 5px #0288d1; position: relative; font-size: 1rem; }
+        .extra-btn { grid-column: span 3; background: #9c27b0; box-shadow: 0 6px #7b1fa2; margin-top: 8px; padding: 18px; font-size: 1.4rem; }
+        .medal-icon { font-size: 2.8rem; display: block; margin-bottom: 2px; min-height: 3rem; }
+        .best-label { display: block; font-size: 0.8rem; background: rgba(0,0,0,0.1); border-radius: 8px; padding: 2px 5px; margin-top: 2px; }
+
+        .mode-select { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; }
+        .mode-btn { padding: 10px 15px; background: #fff; border: 2px solid #ddd; border-radius: 25px; cursor: pointer; font-size: 1rem; font-weight: bold; color: #666; }
+        .mode-btn.active { background: var(--secondary); border-color: #f57c00; color: #fff; }
+
+        .back-btn { margin-top: 15px; background: #90a4ae; color: white; padding: 15px; border: none; border-radius: 12px; cursor: pointer; width: 100%; font-size: 1.2rem; }
+        
+        .hidden { display: none; }
+        h1 { font-size: 1.8rem; color: #f57c00; margin: 0 0 10px 0; text-shadow: 1px 1px #fff; }
+        #q-count { margin-bottom: 5px; font-weight: bold; color: #666; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="menu-screen">
+        <h1>✨ 九九がんばりドリル ✨</h1>
+        <div class="mode-select">
+            <button id="mode-seq" class="mode-btn active" onclick="setMode('seq')">じゅんばん</button>
+            <button id="mode-rev" class="mode-btn" onclick="setMode('rev')">ぎゃく</button>
+            <button id="mode-rnd" class="mode-btn" onclick="setMode('rnd')">バラバラ</button>
+        </div>
+        <div class="menu-grid" id="dan-buttons"></div>
+        <div class="menu-grid">
+            <button class="menu-btn extra-btn" onclick="startGame(0)">
+                <span id="extra-medal" class="medal-icon"></span>
+                ぜんぶバラバラ（20もん）
+                <span class="best-label" id="extra-best">きろく: --</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="game-screen" class="hidden">
+        <div class="timer-box" id="timer">00:00.00</div>
+        <div id="q-count"></div>
+        <div class="question" id="question-area">
+            <span id="question-text">? × ? = </span>
+            <div id="circle-overlay">⭕️</div>
+        </div>
+        <div class="answer-display" id="answer-display">?</div>
+        
+        <div class="numpad">
+            <button class="num-btn" onclick="inputNum(1)">1</button><button class="num-btn" onclick="inputNum(2)">2</button><button class="num-btn" onclick="inputNum(3)">3</button>
+            <button class="num-btn" onclick="inputNum(4)">4</button><button class="num-btn" onclick="inputNum(5)">5</button><button class="num-btn" onclick="inputNum(6)">6</button>
+            <button class="num-btn" onclick="inputNum(7)">7</button><button class="num-btn" onclick="inputNum(8)">8</button><button class="num-btn" onclick="inputNum(9)">9</button>
+            <button class="num-btn" onclick="inputNum(0)">0</button>
+            <button class="num-btn" style="grid-column: span 2;" onclick="clearInput()">けす</button>
+        </div>
+        <button class="back-btn" onclick="stopGame()">やめる</button>
+    </div>
+</div>
+
+<div id="hanamaru-overlay">💮</div>
+
+<script>
+    let currentDan = 1, currentMode = 'seq', questions = [], qIndex = 0, userInput = "";
+    let startTime, timerInterval;
+    const danBestTimes = JSON.parse(localStorage.getItem('kukuFinalDataV2') || '{}');
+
+    function setMode(mode) {
+        currentMode = mode;
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('mode-' + mode).classList.add('active');
+        createMenu();
+    }
+
+    function createMenu() {
+        const grid = document.getElementById("dan-buttons");
+        grid.innerHTML = "";
+        for(let i=1; i<=9; i++) {
+            const btn = document.createElement("button");
+            btn.className = "menu-btn";
+            const best = danBestTimes[`${i}_${currentMode}`];
+            const medal = getMedal(best, false);
+            btn.innerHTML = `<span class="medal-icon">${medal}</span>${i}のだん<span class="best-label">きろく: ${best ? best.toFixed(2)+'s' : '--'}</span>`;
+            btn.onclick = () => startGame(i);
+            grid.appendChild(btn);
+        }
+        const eBest = danBestTimes[`extra`];
+        document.getElementById("extra-medal").innerText = getMedal(eBest, true);
+        document.getElementById("extra-best").innerText = `きろく: ${eBest ? eBest.toFixed(2)+'s' : '--'}`;
+    }
+
+    // ★タイム設定の変更場所
+    function getMedal(time, isExtra) {
+        if (!time) return "";
+        let gold, silver, bronze;
+        
+        if (isExtra) {
+            // エクストラ（20問）の設定
+            gold = 25; silver = 40; bronze = 60;
+        } else {
+            // 1〜9のだん（9問）の設定
+            gold = 15; silver = 20; bronze = 25;
+        }
+
+        if (time <= gold) return "🥇";
+        if (time <= silver) return "🥈";
+        if (time <= bronze) return "🥉";
+        return "🏁";
+    }
+
+    function startGame(dan) {
+        currentDan = dan; userInput = ""; qIndex = 0; questions = [];
+        if (dan === 0) {
+            for(let i=0; i<20; i++) {
+                questions.push({d: Math.floor(Math.random()*9)+1, s: Math.floor(Math.random()*9)+1});
+            }
+        } else {
+            for(let i=1; i<=9; i++) {
+                let s = (currentMode === 'rev') ? 10 - i : i;
+                questions.push({d: dan, s: s});
+            }
+            if(currentMode === 'rnd') questions.sort(() => Math.random() - 0.5);
+        }
+        updateQuestion();
+        document.getElementById("menu-screen").classList.add("hidden");
+        document.getElementById("game-screen").classList.remove("hidden");
+        startTime = Date.now();
+        timerInterval = setInterval(() => {
+            document.getElementById("timer").innerText = ((Date.now() - startTime) / 1000).toFixed(2).padStart(5, '0');
+        }, 10);
+    }
+
+    function updateQuestion() {
+        const q = questions[qIndex];
+        document.getElementById("question-text").innerText = `${q.d} × ${q.s} = `;
+        document.getElementById("q-count").innerText = `${qIndex + 1} / ${questions.length}`;
+        document.getElementById("answer-display").innerText = "";
+    }
+
+    function inputNum(num) {
+        userInput += num.toString();
+        document.getElementById("answer-display").innerText = userInput;
+        const q = questions[qIndex];
+        const correct = q.d * q.s;
+        if (userInput.length === correct.toString().length) {
+            if (parseInt(userInput) === correct) {
+                showCircle();
+            } else {
+                userInput = "";
+                document.getElementById("answer-display").innerText = "×";
+                setTimeout(() => { document.getElementById("answer-display").innerText = ""; }, 200);
+            }
+        }
+    }
+
+    function showCircle() {
+        const circle = document.getElementById("circle-overlay");
+        circle.style.display = "block";
+        setTimeout(() => {
+            circle.style.display = "none";
+            nextQuestion();
+        }, 180);
+    }
+
+    function nextQuestion() {
+        userInput = ""; qIndex++;
+        if (qIndex >= questions.length) finishGame(); else updateQuestion();
+    }
+
+    function finishGame() {
+        clearInterval(timerInterval);
+        const time = (Date.now() - startTime) / 1000;
+        const hanamaru = document.getElementById("hanamaru-overlay");
+        hanamaru.style.display = "block";
+        
+        const key = (currentDan === 0) ? `extra` : `${currentDan}_${currentMode}`;
+        if (!danBestTimes[key] || time < danBestTimes[key]) {
+            danBestTimes[key] = time;
+            localStorage.setItem('kukuFinalDataV2', JSON.stringify(danBestTimes));
+        }
+
+        setTimeout(() => {
+            hanamaru.style.display = "none";
+            document.getElementById("question-text").innerText = "やったね！";
+            document.getElementById("answer-display").innerText = time.toFixed(2) + "びょう";
+            setTimeout(stopGame, 1500);
+        }, 1500);
+    }
+
+    function stopGame() {
+        clearInterval(timerInterval);
+        document.getElementById("menu-screen").classList.remove("hidden");
+        document.getElementById("game-screen").classList.add("hidden");
+        createMenu();
+    }
+
+    function clearInput() { userInput = ""; document.getElementById("answer-display").innerText = ""; }
+    createMenu();
+</script>
+
+</body>
+</html>
